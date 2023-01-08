@@ -1,0 +1,79 @@
+pipeline{
+    agent any
+    tools{
+        maven '3.8.6maven'
+    }
+    options {
+         timestamps()
+  buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5')
+}
+triggers {
+  pollSCM '* * * * *'
+}
+
+    stages{
+        stage("checkout"){
+            steps{
+            git credentialsId: '4b48be0d-685b-4ca1-9c4e-c8681e889b74', url: 'https://github.com/css-august/maven-web-application.git'    
+            }
+        }
+    
+        stage("build"){
+            steps{
+                sh"mvn clean package"
+            }
+        }
+        /* stage("sonarreport"){
+            steps{
+                sh"mvn clean sonar:sonar"
+            }
+        }
+        stage("uploadintonexus"){
+            steps{
+                sh"mvn clean deploy"
+            }
+        } */
+        stage("deployintotomcat"){
+            steps{
+                sshagent(['d600a731-418b-446b-8083-c744a80ce7ec']) {
+        sh("scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@172.31.36.98:/opt/apache-tomcat-9.0.70/webapps/")
+    }
+            }
+        }
+}
+
+   post {
+  success {
+    notifyBuild(currentBuild.result)
+  }
+  failure {
+    notifyBuild(currentBuild.result)
+} 
+}
+}
+//code snippet for sending slack notifications
+def notifyBuild(String buildStatus = 'STARTED') {
+  // build status of null means successful
+  buildStatus =  buildStatus ?: 'SUCCESSFUL'
+
+  // Default values
+  def colorName = 'RED'
+  def colorCode = '#FF0000'
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def summary = "${subject} (${env.BUILD_URL})"
+
+  // Override default values based on build status
+  if (buildStatus == 'STARTED') {
+    colorName = 'YELLOW'
+    colorCode = '#FFFF00'
+  } else if (buildStatus == 'SUCCESSFUL') {
+    color = 'GREEN'
+    colorCode = '#00FF00'
+  } else {
+    color = 'RED'
+    colorCode = '#FF0000'
+  }
+
+  // Send notifications
+  slackSend (color: colorCode, message: summary, channel:"#walmart")
+}
