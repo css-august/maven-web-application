@@ -2,6 +2,7 @@ node{
     echo "branch name is:${env.BRANCH_NAME}"
     def mavenhome=tool name:"3.8.6maven"
     properties([buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '4')), [$class: 'JobLocalConfiguration', changeReasonComment: ''], pipelineTriggers([pollSCM('* * * * *')])])
+    try{
     stage("checkout"){
    git cAredentialsId: '4b48be0d-685b-4ca1-9c4e-c8681e889b74', url: 'https://github.com/css-august/maven-web-application.git'    
     }
@@ -19,6 +20,14 @@ node{
         sh("scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@172.31.36.98:/opt/apache-tomcat-9.0.70/webapps/")
     }
     }
+    }
+   catch (e) {
+  notifyBuild('FAILED')
+    throw e
+  } finally {
+    // Success or failure, always send notifications
+    notifyBuild(currentBuild.result)
+  } 
 }
 //code snippet for sending slack notifications
 def notifyBuild(String buildStatus = 'STARTED') {
