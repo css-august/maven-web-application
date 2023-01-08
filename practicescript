@@ -1,0 +1,22 @@
+node{
+    echo "branch name is:${env.BRANCH_NAME}"
+    def mavenhome=tool name:"3.8.6maven"
+    properties([buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '4')), [$class: 'JobLocalConfiguration', changeReasonComment: ''], pipelineTriggers([pollSCM('* * * * *')])])
+    stage("checkout"){
+   git cAredentialsId: '4b48be0d-685b-4ca1-9c4e-c8681e889b74', url: 'https://github.com/css-august/maven-web-application.git'    
+    }
+    stage("build"){
+        sh "${mavenhome}/bin/mvn clean package"
+    }
+   /* stage("sonarreport"){
+        sh"${mavenhome}/bin/mvn clean sonar:sonar"
+    }
+    stage("uploadtonexus"){
+        sh"${mavenhome}/bin/mvn clean deploy"
+    } */
+    stage ("depoytotomcat"){
+        sshagent(['d600a731-418b-446b-8083-c744a80ce7ec']) {
+        sh("scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@172.31.36.98:/opt/apache-tomcat-9.0.70/webapps/")
+    }
+    }
+}
